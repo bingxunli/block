@@ -1,0 +1,728 @@
+library(TwoSampleMR)
+library(dbplyr)
+library(data.table)
+library(dplyr)
+library(ieugwasr)
+library(plinkbinr)
+library(CMplot)
+library(tidyr)
+library(tidyverse)
+#library(SNPlocs.Hsapiens.dbSNP155.GRCh38)
+library(ldscr)
+library(VariantAnnotation)
+library(gwasvcf)
+library(gwasglue)
+
+#### LBBB ####
+setwd('~/LBBB')
+LBBB_finn <- fread('finngen_R10_I9_LBBB.gz',data.table = F)
+LBBB_UKB <- fread('phenocode-426.32.tsv.gz',data.table = F)
+LBBB_UKB$n <- 1750  + 379217 
+LBBB_finn$n <- 2419 + 342690
+
+write.table(LBBB_finn, 'LBBB_finn.txt', sep='\t', quote=FALSE, row.names=FALSE)
+write.table(LBBB_UKB, 'LBBB_UKB.txt', sep='\t', quote=FALSE, row.names=FALSE)
+gc()
+
+# Metal软件分析
+#整理GWAS_meta结果 
+#读取LBBB meta结果
+LBBB_meta=fread('LBBB_meta.txt') #此处选择基于标准误加权的meta分析
+colnames(LBBB_meta)
+LBBB_meta$se <- 1/sqrt(2*LBBB_meta$Freq1*(1-LBBB_meta$Freq1)*(LBBB_meta$Freq1)*(LBBB_meta$Weight+(LBBB_meta$Zscore)^2))
+LBBB_meta$beta <-(LBBB_meta$Zscore)*(LBBB_meta$se)
+# se and beta were calculated according to reference: PMID: 27019110###
+#标准化列名："rsid"，"beta"，"se"，"eaf"，"effect_allele"，"other_allele"，"pval"，"N"
+LBBB_meta = LBBB_meta[,c(1:4,8,10,12:13)]
+colnames(LBBB_meta) = c("rsid","effect_allele","other_allele","eaf",'N',"pval","se","beta")
+LBBB_meta$effect_allele <- toupper(LBBB_meta$effect_allele)
+LBBB_meta$other_allele <- toupper(LBBB_meta$other_allele)
+LBBB_meta$pval <- as.numeric(LBBB_meta$pval)
+LBBB_meta$beta <- as.numeric(LBBB_meta$beta)
+LBBB_meta$se <- as.numeric(LBBB_meta$se)
+head(finngen)
+finngen <- select(LBBB_finn, rsid, "#chrom", pos)
+UKB <- select(LBBB_UKB, rsid,chrom, pos)
+colnames(finngen) <- c("SNP", "chr", "pos")
+colnames(UKB) <- c("SNP", "chr", "pos")
+df1 <- rbind(finngen, UKB)
+df1 <- df1[!duplicated(df1$SNP),]
+LBBB_meta <- merge(LBBB_meta, df1, by.x = "SNP", by.y = "SNP")
+
+exp_data <- LBBB_meta|> ieugwasr::ld_clump(LBBB_meta,
+                                                  clump_kb = 10000,
+                                                  clump_r2 = 0.001,
+                                                  clump_p = 5e-8,
+                                                  pop = "EUR",
+                                                  plink_bin = "/usr/local/lib/R/site-library/plinkbinr/bin/plink_Linux",
+                                                  bfile = "/home/wasy123/1kgv3/EUR")
+# 添加chr_pos
+finngen <- select(LBBB_finn, rsids, "#chrom", pos)
+UKB <- select(LBBB_UKB, rsids,chrom, pos)
+colnames(finngen) <- c("SNP", "chr", "pos")
+colnames(UKB) <- c("SNP", "chr", "pos")
+df1 <- rbind(finngen, UKB)
+df1 <- df1[!duplicated(df1$SNP),]
+# clump
+colnames(LBBB_finn)[5] <- 'rsid'
+LBBB_finn_clump <- LBBB_finn|> ieugwasr::ld_clump(LBBB_finn,
+                                          clump_kb = 10000,
+                                          clump_r2 = 0.001,
+                                          clump_p = 5e-8,
+                                          pop = "EUR",
+                                          plink_bin = "/usr/local/lib/R/site-library/plinkbinr/bin/plink_Linux",
+                                          bfile = "/home/wasy123/1kgv3/EUR")
+colnames(LBBB_UKB)[5] <- 'rsid'
+LBBB_UKB_clump <- LBBB_UKB|> ieugwasr::ld_clump(LBBB_UKB,
+                                                  clump_kb = 10000,
+                                                  clump_r2 = 0.001,
+                                                  clump_p = 5e-8,
+                                                  pop = "EUR",
+                                                  plink_bin = "/usr/local/lib/R/site-library/plinkbinr/bin/plink_Linux",
+                                                  bfile = "/home/wasy123/1kgv3/EUR")
+
+
+## novel loci(SNP>500KB)
+orig_loci <- rbind(LBBB_finn_clump[,c('rsid','#chrom','pos')],
+                   use.names=FALSE) %>% distinct(rsid,.keep_all = TRUE)
+orig_loci$pos <- as.numeric(orig_loci$pos)
+orig_loci$'#chrom' <- as.numeric(orig_loci$'#chrom')
+
+filter_list <- list()
+for (i in 1:nrow(orig_loci)){
+  filter_list[[i]] <- subset(LBBB_meta_clump, chr == orig_loci$'#chrom' [i] & 
+                               pos>= orig_loci$pos[i] - 500000 & 
+                               pos <= orig_loci$pos[i] + 500000)
+}
+filter_list <- do.call(rbind, filter_list) %>% distinct(rsid, .keep_all = TRUE)
+LBBB_meta_filtered <- subset(LBBB_meta_clump, ! rsid %in% filter_list$rsid)
+write.table(LBBB_meta_filtered, 'LBBB_meta_filtered.txt', sep='\t', quote=FALSE, row.names=FALSE)
+# 绘制曼哈顿图 #
+#随机抽取10000个SNP绘制曼哈顿图
+set.seed(123)
+LBBB_df_plot <- rbind(subset(LBBB_meta,rsid %in% LBBB_meta_clump$rsid), LBBB_meta[sample(nrow(LBBB_meta), 100000),])
+LBBB_df_plot <- LBBB_df_plot[!duplicated(LBBB_df_plot$rsid),]
+
+#qqman
+pdf('LBBB_meta_manhattan2.pdf', width = 10, height = 6)
+CMplot(LBBB_df_plot1,plot.type = "m", threshold = 5e-8, 
+       threshold.col = c("grey","black"),threshold.lty = c(1,2), threshold.lwd = c(1,1),
+       amplify = T, signal.cex = c(1,1), signal.pch = c(20,20), 
+       signal.col = c('#30A9DE','#EFDC05','#E53A40','#090707'), 
+       multracks = F, file.output = F)
+#Q-Q图
+LBBB_df_plot1 <- df_plot
+colnames(LBBB_df_plot1) <- c("SNP", "effect_allele", "other_allele", "eaf", "N", "P", "se", "beta", "CHR", "BP")
+df_plot_subset <- df_plot_renamed[, c("SNP", "CHR", "BP", "P")]
+pdf('LBBB_meta_QQplot.pdf', width = 6, height = 6)
+CMplot(df_plot_renamed, plot.type = "q", conf.int.col = NULL, box = TRUE,
+       file = "pdf", dpi = 300, file.output = TRUE, verbose = TRUE)
+
+dev.off()
+
+####AVB ####
+setwd('~/AVB')
+AVB_finn <- fread('finngen_R10_I9_AVB.gz',data.table = F)
+AVB_UKB <- fread('phenocode-426.2.tsv.gz',data.table = F)
+AVB_UKB$n <- 2111 + 379217 
+AVB_finn$n <- 6935 + 342690
+
+write.table(AVB_finn, 'AVB_finn.txt', sep='\t', quote=FALSE, row.names=FALSE)
+write.table(AVB_UKB, 'AVB_UKB.txt', sep='\t', quote=FALSE, row.names=FALSE)
+gc()
+
+# Metal软件分析
+
+##读取AVB meta结果
+AVB_meta=fread('AVB_meta.txt') #此处选择基于标准误加权的meta分析
+colnames(AVB_meta)
+AVB_meta$se <- 1/sqrt(2*AVB_meta$Freq1*(1-AVB_meta$Freq1)*(AVB_meta$Freq1)*(AVB_meta$Weight+(AVB_meta$Zscore)^2))
+AVB_meta$beta <-(AVB_meta$Zscore)*(AVB_meta$se)
+# se and beta were calculated according to reference: PMID: 27019110###
+#标准化列名："rsid"，"beta"，"se"，"eaf"，"effect_allele"，"other_allele"，"pval"，"N"
+AVB_meta = AVB_meta[,c(1:4,8,10,12:13)]
+colnames(AVB_meta) = c("rsid","effect_allele","other_allele","eaf",'N',"pval","se","beta")
+AVB_meta$effect_allele <- toupper(AVB_meta$effect_allele)
+AVB_meta$other_allele <- toupper(AVB_meta$other_allele)
+AVB_meta$pval <- as.numeric(AVB_meta$pval)
+AVB_meta$beta <- as.numeric(AVB_meta$beta)
+AVB_meta$se <- as.numeric(AVB_meta$se)
+head(finngen)
+finngen <- select(AVB_finn, rsid, "#chrom", pos)
+UKB <- select(AVB_UKB, rsid,chrom, pos)
+colnames(finngen) <- c("SNP", "chr", "pos")
+colnames(UKB) <- c("SNP", "chr", "pos")
+df1 <- rbind(finngen, UKB)
+df1 <- df1[!duplicated(df1$SNP),]
+AVB_meta <- merge(AVB_meta, df1, by.x = "SNP", by.y = "SNP")
+
+exp_data <- AVB_meta|> ieugwasr::ld_clump(AVB_meta,
+                                          clump_kb = 10000,
+                                          clump_r2 = 0.001,
+                                          clump_p = 5e-8,
+                                          pop = "EUR",
+                                          plink_bin = "/usr/local/lib/R/site-library/plinkbinr/bin/plink_Linux",
+                                          bfile = "/home/wasy123/1kgv3/EUR")
+# 添加chr_pos
+finngen <- select(AVB_finn, rsids, "#chrom", pos)
+UKB <- select(AVB_UKB, rsids,chrom, pos)
+colnames(finngen) <- c("SNP", "chr", "pos")
+colnames(UKB) <- c("SNP", "chr", "pos")
+df1 <- rbind(finngen, UKB)
+df1 <- df1[!duplicated(df1$SNP),]
+# clump
+colnames(AVB_finn)[5] <- 'rsid'
+AVB_finn_clump <- AVB_finn|> ieugwasr::ld_clump(AVB_finn,
+                                                clump_kb = 10000,
+                                                clump_r2 = 0.001,
+                                                clump_p = 5e-8,
+                                                pop = "EUR",
+                                                plink_bin = "/usr/local/lib/R/site-library/plinkbinr/bin/plink_Linux",
+                                                bfile = "/home/wasy123/1kgv3/EUR")
+colnames(AVB_UKB)[5] <- 'rsid'
+AVB_UKB_clump <- AVB_UKB|> ieugwasr::ld_clump(AVB_UKB,
+                                              clump_kb = 10000,
+                                              clump_r2 = 0.001,
+                                              clump_p = 5e-8,
+                                              pop = "EUR",
+                                              plink_bin = "/usr/local/lib/R/site-library/plinkbinr/bin/plink_Linux",
+                                              bfile = "/home/wasy123/1kgv3/EUR")
+
+
+## novel loci(SNP>500KB)
+orig_loci <- rbind(AVB_finn_clump[,c('rsid','#chrom','pos')],
+                   use.names=FALSE) %>% distinct(rsid,.keep_all = TRUE)
+orig_loci$pos <- as.numeric(orig_loci$pos)
+orig_loci$'#chrom' <- as.numeric(orig_loci$'#chrom')
+
+filter_list <- list()
+for (i in 1:nrow(orig_loci)){
+  filter_list[[i]] <- subset(AVB_meta_clump, chr == orig_loci$'#chrom' [i] & 
+                               pos>= orig_loci$pos[i] - 500000 & 
+                               pos <= orig_loci$pos[i] + 500000)
+}
+filter_list <- do.call(rbind, filter_list) %>% distinct(rsid, .keep_all = TRUE)
+AVB_meta_filtered <- subset(AVB_meta_clump, ! rsid %in% filter_list$rsid)
+write.table(AVB_meta_filtered, 'AVB_meta_filtered.txt', sep='\t', quote=FALSE, row.names=FALSE)
+# 绘制曼哈顿图 #
+#随机抽取10000个SNP绘制曼哈顿图
+set.seed(123)
+AVB_df_plot <- rbind(subset(AVB_meta,rsid %in% AVB_meta_clump$rsid), AVB_meta[sample(nrow(LBBB_meta), 100000),])
+AVB_df_plot <- AVB_df_plot[!duplicated(AVB_df_plot$rsid),]
+
+#qqman
+pdf('AVB_meta_manhattan.pdf', width = 10, height = 6)
+CMplot(AVB_df_plot,plot.type = "m", threshold = 5e-8, 
+       threshold.col = c("grey","black"),threshold.lty = c(1,2), threshold.lwd = c(1,1),
+       amplify = T, signal.cex = c(1,1), signal.pch = c(20,20), 
+       signal.col = c('#30A9DE','#EFDC05','#E53A40','#090707'), 
+       multracks = F, file.output = F)
+##Q-Q图
+AVB_df_plot1 <- AVB_df_plot
+colnames(AVB_df_plot1) <- c("SNP", "effect_allele", "other_allele", "eaf", "N", "P", "se", "beta", "CHR", "BP")
+AVB_df_plot1 <- AVB_df_plot1[, c("SNP", "CHR", "BP", "P")]
+pdf('AVB_meta_QQplot.pdf', width = 6, height = 6)
+CMplot(AVB_df_plot1, plot.type = "q", conf.int.col = NULL, box = TRUE,
+       file = "pdf", dpi = 300, file.output = TRUE, verbose = TRUE)
+dev.off()
+
+#### RBBB #### 
+RBBB_finn <- fread('finngen_R10_I9_RBBB.gz',data.table = F)
+RBBB_UKB <- fread('phenocode-426.31.tsv.gz',data.table = F)
+RBBB_UKB$n <- 1492  + 379216 
+RBBB_finn$n <- 1186 + 342690
+
+gc()
+#
+RBBB_meta=fread('RBBB_meta.txt') #此处选择基于标准误加权的meta分析
+colnames(RBBB_meta)
+RBBB_meta$se <- 1/sqrt(2*RBBB_meta$Freq1*(1-RBBB_meta$Freq1)*(RBBB_meta$Freq1)*(RBBB_meta$Weight+(RBBB_meta$Zscore)^2))
+RBBB_meta$beta <-(RBBB_meta$Zscore)*(RBBB_meta$se)
+### se and beta were calculated according to reference: PMID: 27019110###
+#标准化列名："rsid"，"beta"，"se"，"eaf"，"effect_allele"，"other_allele"，"pval"，"N"
+RBBB_meta = RBBB_meta[,c(1:4,8,10,12:13)]
+colnames(RBBB_meta) = c("rsid","effect_allele","other_allele","eaf",'N',"pval","se","beta")
+RBBB_meta$effect_allele <- toupper(RBBB_meta$effect_allele)
+RBBB_meta$other_allele <- toupper(RBBB_meta$other_allele)
+RBBB_meta$pval <- as.numeric(RBBB_meta$pval)
+RBBB_meta$beta <- as.numeric(RBBB_meta$beta)
+RBBB_meta$se <- as.numeric(RBBB_meta$se)
+head(finngen)
+finngen <- select(RBBB_finn, rsid, "#chrom", pos)
+UKB <- select(RBBB_UKB, rsid,chrom, pos)
+colnames(finngen) <- c("SNP", "chr", "pos")
+colnames(UKB) <- c("SNP", "chr", "pos")
+df1 <- rbind(finngen, UKB)
+df1 <- df1[!duplicated(df1$SNP),]
+RBBB_meta <- merge(RBBB_meta, df1, by.x = "SNP", by.y = "SNP")
+
+exp_data <- RBBB_meta|> ieugwasr::ld_clump(RBBB_meta,
+                                           clump_kb = 10000,
+                                           clump_r2 = 0.001,
+                                           clump_p = 5e-8,
+                                           pop = "EUR",
+                                           plink_bin = "/usr/local/lib/R/site-library/plinkbinr/bin/plink_Linux",
+                                           bfile = "/home/wasy123/1kgv3/EUR")
+# 添加chr_pos
+finngen <- select(RBBB_finn, rsids, "#chrom", pos)
+UKB <- select(RBBB_UKB, rsids,chrom, pos)
+colnames(finngen) <- c("SNP", "chr", "pos")
+colnames(UKB) <- c("SNP", "chr", "pos")
+df1 <- rbind(finngen, UKB)
+df1 <- df1[!duplicated(df1$SNP),]
+# clump
+colnames(RBBB_finn)[5] <- 'rsid'
+RBBB_finn_clump <- RBBB_finn|> ieugwasr::ld_clump(RBBB_finn,
+                                                  clump_kb = 10000,
+                                                  clump_r2 = 0.001,
+                                                  clump_p = 5e-8,
+                                                  pop = "EUR",
+                                                  plink_bin = "/usr/local/lib/R/site-library/plinkbinr/bin/plink_Linux",
+                                                  bfile = "/home/wasy123/1kgv3/EUR")
+colnames(RBBB_UKB)[5] <- 'rsid'
+RBBB_UKB_clump <- RBBB_UKB|> ieugwasr::ld_clump(RBBB_UKB,
+                                                clump_kb = 10000,
+                                                clump_r2 = 0.001,
+                                                clump_p = 5e-8,
+                                                pop = "EUR",
+                                                plink_bin = "/usr/local/lib/R/site-library/plinkbinr/bin/plink_Linux",
+                                                bfile = "/home/wasy123/1kgv3/EUR")
+
+
+## novel loci(SNP>500KB)
+orig_loci <- rbind(RBBB_finn_clump[,c('rsid','#chrom','pos')],
+                   use.names=FALSE) %>% distinct(rsid,.keep_all = TRUE)
+orig_loci$pos <- as.numeric(orig_loci$pos)
+orig_loci$'#chrom' <- as.numeric(orig_loci$'#chrom')
+
+filter_list <- list()
+for (i in 1:nrow(orig_loci)){
+  filter_list[[i]] <- subset(RBBB_meta_clump, chr == orig_loci$'#chrom' [i] & 
+                               pos>= orig_loci$pos[i] - 500000 & 
+                               pos <= orig_loci$pos[i] + 500000)
+}
+filter_list <- do.call(rbind, filter_list) %>% distinct(rsid, .keep_all = TRUE)
+RBBB_meta_filtered <- subset(RBBB_meta_clump, ! rsid %in% filter_list$rsid)
+write.table(RBBB_meta_filtered, 'RBBB_meta_filtered.txt', sep='\t', quote=FALSE, row.names=FALSE)
+# 绘制曼哈顿图 #
+#随机抽取10000个SNP绘制曼哈顿图
+set.seed(123)
+RBBB_df_plot <- rbind(subset(RBBB_meta,rsid %in% RBBB_meta_clump$rsid), RBBB_meta[sample(nrow(LBBB_meta), 100000),])
+RBBB_df_plot <- RBBB_df_plot[!duplicated(RBBB_df_plot$rsid),]
+
+#qqman
+pdf('RBBB_meta_manhattan.pdf', width = 10, height = 6)
+CMplot(RBBB_df_plot,plot.type = "m", threshold = 5e-8, 
+       threshold.col = c("grey","black"),threshold.lty = c(1,2), threshold.lwd = c(1,1),
+       amplify = T, signal.cex = c(1,1), signal.pch = c(20,20), 
+       signal.col = c('#30A9DE','#EFDC05','#E53A40','#090707'), 
+       multracks = F, file.output = F)
+##Q-Q图
+RBBB_df_plot1 <- RBBB_df_plot
+colnames(RBBB_df_plot1) <- c("SNP", "effect_allele", "other_allele", "eaf", "N", "P", "se", "beta", "CHR", "BP")
+RBBB_df_plot1 <- RBBB_df_plot1[, c("SNP", "CHR", "BP", "P")]
+pdf('RBBB_meta_QQplot.pdf', width = 6, height = 6)
+CMplot(RBBB_df_plot1, plot.type = "q", conf.int.col = NULL, box = TRUE,
+       file = "pdf", dpi = 300, file.output = TRUE, verbose = TRUE)
+dev.off()
+
+
+####getx eqtl ####
+ven <- fread('Heart_Left_Ventricle.v8.EUR.signif_pairs.txt.gz',data.table = F)
+ven$rsid <- NA
+split_column <- strsplit(as.character(ven$variant_id), "_")
+col_names <- c("chr", "pos",'ref','alt','version_b38')
+split_data_frame <- as.data.frame(do.call(rbind, split_column))
+colnames(split_data_frame) <- col_names
+ven <- cbind(ven, split_data_frame)
+ven$chr <- sub("^chr", "", ven$chr )
+
+snps <- SNPlocs.Hsapiens.dbSNP155.GRCh38
+
+#loop get rsid
+for (i in unique(ven$chr)) {
+  my_pos <- ven$pos[ven$chr == i]
+  chr_snps <- snpsBySeqname(snps, as.character(i))
+  idx <- match(my_pos, pos(chr_snps))
+  rsids <- mcols(chr_snps)$RefSNP_id[idx]
+  ven$rsid[ven$chr == i] <- rsids
+  print(paste("Chromosome", as.character(i), "is processed"))
+}
+
+#local clump
+colnames(combined_dt)[2] <- 'rsid'
+colnames(ven)[8] <- 'pval'
+ven<- ven  |> dplyr::filter(pval < 5e-8 )
+split_data_test <- split(ven, ven$phenotype_id)
+
+for (i in 1:4362) {
+  if (!is.null(split_data_test[[i]])) {
+    result <- tryCatch({
+      split_data_test[[i]] <- split_data_test[[i]] |>
+        ieugwasr::ld_clump(
+          clump_kb = 10000,
+          clump_r2 = 0.001,
+          clump_p = 5e-8,
+          pop = "EUR",
+          plink_bin = "/usr/local/lib/R/site-library/plinkbinr/bin/plink_Linux",
+          bfile = "/home/wasy123/1kgv3/EUR")
+    }, error = function(e) {
+      
+      cat("Error in iteration", i, ":", conditionMessage(e), "\n")
+    })
+    
+    if (inherits(result, "try-error")) {
+      next  # 跳过当前迭代，继续下一次循环
+    }
+    print(result)
+  }
+}
+combined_dt <- rbindlist(split_data_test,fill=TRUE)
+combined_dt <- na.omit(combined_dt)
+#format data
+
+
+#### SNP annotation ####
+# SNP_nearest_gene
+load("~/BBB/full/gene_pos.rdata")
+SNP_nearest_gene <- function(data, flanking=100, build='hg19', 
+                             snp='rsid', chr='chromosome', bp='position'){
+  
+  # 选择基因列表
+  if(build == 'hg19'){
+    genelist <- hg19_gene_pos
+  } else if(build == 'hg38'){
+    genelist <- hg38_gene_pos
+  } else {
+    stop("Unsupported genome build. Please use 'hg19' or 'hg38'.")
+  }
+  
+  # 重命名列以匹配默认值
+  if(snp != 'rsid'){
+    data <- data %>% dplyr::rename(rsid = snp)
+  }
+  
+  if(chr != 'chromosome'){
+    data <- data %>% dplyr::rename(chromosome = chr)
+  }
+  
+  if(bp != 'position'){
+    data <- data %>% dplyr::rename(position = bp)
+  }
+  
+  # 查找附近的基因
+  data <- sqldf::sqldf(sprintf("select A.*, B.*, 
+              abs(A.position - B.START) as dist_start, 
+              abs(A.position - B.STOP) as dist_stop 
+              from data A 
+              left join genelist B 
+              ON (A.chromosome == B.CHR and 
+              A.position >= B.START - %1$s and 
+              A.position <= B.STOP + %1$s)", flanking*1000))
+  
+  # 汇总所有附近基因
+  all_genes_data <- data %>%
+    dplyr::group_by(rsid, chromosome, position) %>%
+    dplyr::summarise(All_Genes = paste(GENE, collapse=','))
+  
+  # 选择最近的基因
+  nearest_gene_data <- data %>%
+    dplyr::mutate(distance = pmin(dist_start, dist_stop)) %>%
+    dplyr::group_by(rsid, chromosome, position) %>%
+    dplyr::filter(distance == min(distance)) %>%
+    dplyr::summarise(Nearest_Gene = GENE[which.min(distance)], 
+                     Distance_to_Gene = min(distance)) %>%
+    data.frame()
+  
+  # 合并两个结果
+  final_data <- dplyr::left_join(nearest_gene_data, all_genes_data, 
+                                 by = c("rsid", "chromosome", "position"))
+  
+  return(final_data)
+}
+### LBBB SNP annotation ###
+#flanking=100 上下游500kb; build="hg19"或'hg38'
+LBBB_data_genes_old <- SNP_nearest_gene(data = LBBB_meta_clump,flanking = 500, build = "hg19",
+                                    snp = "rsid", chr = "chr",
+                                    bp = "pos")
+## 提取基因名
+genes <- LBBB_data_genes_old$All_Genes
+genes <- unlist(strsplit(genes, split = ",")) %>% unique()
+
+# PoPS
+PoPS <- read.table('PoPS_FullResults.txt', header = T)
+unique(PoPS$trait)
+PoPS <- PoPS[grepl('Cardiovascular_Disease', PoPS$trait),] %>% dplyr::select(gene, pops_score)
+#
+LBBB_data_genes_old <- dplyr::select(LBBB_data_genes_old, rsid, Nearest_Gene,All_Genes,chromosome,position)
+LBBB_data_genes_old <- LBBB_data_genes_old %>% separate_rows(All_Genes, sep = ",") #按逗号拆分
+LBBB_data_genes_old <- merge(LBBB_data_genes_old, PoPS, by.x = "All_Genes", by.y = "gene", all.x = T)
+
+write.table(LBBB_data_genes_old, 'LBBB_data_genes_old_new.txt', sep='\t', quote=FALSE, row.names=FALSE)
+
+
+#flanking=100 上下游500kb; build="hg19"或'hg38'
+LBBB_data_genes <- SNP_nearest_gene(data = LBBB_meta_filtered,flanking = 500, build = "hg19",
+                               snp = "rsid", chr = "chr",
+                               bp = "pos")
+## 提取基因名
+genes <- LBBB_data_genes$All_Genes
+genes <- unlist(strsplit(genes, split = ",")) %>% unique()
+
+# PoPS
+PoPS <- read.table('PoPS_FullResults.txt', header = T)
+unique(PoPS$trait)
+PoPS <- PoPS[grepl('Cardiovascular_Disease', PoPS$trait),] %>% dplyr::select(gene, pops_score)
+#
+LBBB_data_genes <- dplyr::select(LBBB_data_genes, rsid, Nearest_Gene,All_Genes,chromosome,position)
+LBBB_data_genes <- LBBB_data_genes %>% separate_rows(All_Genes, sep = ",") #按逗号拆分
+LBBB_data_genes <- merge(LBBB_data_genes, PoPS, by.x = "All_Genes", by.y = "gene", all.x = T)
+
+write.table(LBBB_data_genes, 'LBBB_data_genes_new.txt', sep='\t', quote=FALSE, row.names=FALSE)
+
+### AVB SNP annotation ###
+#flanking=100 上下游500kb; build="hg19"或'hg38'
+AVB_data_genes_old <- SNP_nearest_gene(data = AVB_meta_clump,flanking = 500, build = "hg19",
+                                        snp = "rsid", chr = "chr",
+                                        bp = "pos")
+## 提取基因名
+genes <- AVB_data_genes_old$All_Genes
+genes <- unlist(strsplit(genes, split = ",")) %>% unique()
+
+# PoPS
+PoPS <- read.table('PoPS_FullResults.txt', header = T)
+unique(PoPS$trait)
+PoPS <- PoPS[grepl('Cardiovascular_Disease', PoPS$trait),] %>% dplyr::select(gene, pops_score)
+#
+AVB_data_genes_old <- dplyr::select(AVB_data_genes_old, rsid, Nearest_Gene,All_Genes,chromosome,position)
+AVB_data_genes_old <- AVB_data_genes_old %>% separate_rows(All_Genes, sep = ",") #按逗号拆分
+AVB_data_genes_old <- merge(AVB_data_genes_old, PoPS, by.x = "All_Genes", by.y = "gene", all.x = T)
+
+write.table(AVB_data_genes_old, 'AVB_data_genes_old_new.txt', sep='\t', quote=FALSE, row.names=FALSE)
+
+
+#flanking=100 上下游500kb; build="hg19"或'hg38'
+AVB_data_genes <- SNP_nearest_gene(data = AVB_meta_filtered,flanking = 500, build = "hg19",
+                                    snp = "rsid", chr = "chr",
+                                    bp = "pos")
+## 提取基因名
+genes <- AVB_data_genes$All_Genes
+genes <- unlist(strsplit(genes, split = ",")) %>% unique()
+
+# PoPS
+PoPS <- read.table('PoPS_FullResults.txt', header = T)
+unique(PoPS$trait)
+PoPS <- PoPS[grepl('Cardiovascular_Disease', PoPS$trait),] %>% dplyr::select(gene, pops_score)
+#
+AVB_data_genes <- dplyr::select(AVB_data_genes, rsid, Nearest_Gene,All_Genes,chromosome,position)
+AVB_data_genes <- AVB_data_genes %>% separate_rows(All_Genes, sep = ",") #按逗号拆分
+AVB_data_genes <- merge(AVB_data_genes, PoPS, by.x = "All_Genes", by.y = "gene", all.x = T)
+
+write.table(AVB_data_genes, 'AVB_data_genes_new.txt', sep='\t', quote=FALSE, row.names=FALSE)
+
+
+#### format and twosample mr ####
+combined_dt <-  TwoSampleMR::format_data (combined_dt ,
+                                          type = "exposure", 
+                                          snps = NULL,
+                                          header = TRUE,
+                                          phenotype_col = "phenotype_id",
+                                          snp_col = "rsid",
+                                          beta_col = "slope",
+                                          se_col = "slope_se",
+                                          eaf_col = 'maf',
+                                          effect_allele_col = "alt",
+                                          other_allele_col = "ref",
+                                          pval_col = "pval",
+                                          chr_col = 'chr',
+                                          pos_col = 'pos',
+                                          samplesize_col = 'ma_samples')
+LBBB_format <- dplyr::select(LBBB_meta,rsid,se,beta,pval,effect_allele,other_allele,eaf,N)
+colnames(LBBB_format) <- c("SNP","se.outcome","beta.outcome","pval.outcome",'effect_allele.outcome',"other_allele.outcome","eaf.outcome",'samplesize.outcome')
+LBBB_format$outcome <- 'LBBB_meta'
+LBBB_format$id.outcome <- 'LBBB_meta'
+
+RBBB_format <- dplyr::select(RBBB_meta,rsid,se,beta,pval,effect_allele,other_allele,eaf,N)
+colnames(RBBB_format) <- c("SNP","se.outcome","beta.outcome","pval.outcome",'effect_allele.outcome',"other_allele.outcome","eaf.outcome",'samplesize.outcome')
+AVB_format$outcome <- 'AVB_meta'
+AVB_format$id.outcome <- 'AVB_meta'
+
+AVB_format <- dplyr::select(AVB_meta,rsid,se,beta,pval,effect_allele,other_allele,eaf,N)
+colnames(AVB_format) <- c("SNP","se.outcome","beta.outcome","pval.outcome",'effect_allele.outcome',"other_allele.outcome","eaf.outcome",'samplesize.outcome')
+RBBB_format$outcome <- 'RBBB_meta'
+RBBB_format$id.outcome <- 'RBBB_meta'
+#pqtl
+mydata1 <- harmonise_data(
+  exposure_dat=pqtl_cohort ,
+  outcome_dat=AVB_format)
+res1 <- mr(mydata1,method_list = c('mr_ivw','mr_wald_ratio'))
+OR1<-generate_odds_ratios(res1 )
+OR1$OR_combined <- sprintf("%.3f (%.3f-%.3f)", as.numeric(OR1$or), OR1$or_lci95, OR1$or_uci95)
+OR1$fdr <- p.adjust(OR1$pval,method = 'fdr')
+
+#gtex eqtl for ventricular tissue (tissue specific evaluation)
+mydata2 <- harmonise_data(
+  exposure_dat=combined_dt,
+  outcome_dat=LBBB_format)
+res2 <- mr(mydata2,method_list = c('mr_ivw','mr_wald_ratio'))
+OR2<-generate_odds_ratios(res2)
+OR2$OR_combined <- sprintf("%.3f (%.3f-%.3f)", as.numeric(OR2$or), OR2$or_lci95, OR2$or_uci95)
+OR2$fdr <- p.adjust(OR2$pval,method = 'fdr')
+
+
+
+#### ldsc ####
+HF<- VariantAnnotation::readVcf('ebi-a-GCST009541.vcf.gz')
+HF <- gwasglue::gwasvcf_to_TwoSampleMR(vcf = HF, type='outcome')
+SBP<- VariantAnnotation::readVcf('ieu-b-38.vcf.gz')
+SBP <- gwasglue::gwasvcf_to_TwoSampleMR(vcf = SBP, type='outcome')
+AF <- VariantAnnotation::readVcf('ebi-a-GCST006414.vcf.gz')
+AF <- gwasglue::gwasvcf_to_TwoSampleMR(vcf = AF, type='outcome')
+BrS <- fread('GCST90086158_buildGRCh37.tsv.gz',data.table = F)
+BrS$phenotype <- 'BrS'
+BrS <-  TwoSampleMR::format_data (BrS ,
+                                  type = "outcome", 
+                                  snps = NULL,
+                                  header = TRUE,
+                                  phenotype_col = "phenotype",
+                                  snp_col = "variant_id",
+                                  beta_col = "beta",
+                                  se_col = "standard_error",
+                                  eaf_col = 'effect_allele_frequency',
+                                  effect_allele_col = "effect_allele",
+                                  other_allele_col = "other_allele",
+                                  pval_col = "p_value",
+                                  chr_col = 'chromosome',
+                                  pos_col = 'base_pair_location',
+                                  samplesize_col = 'n_all')
+QT <- fread('QT_GCST90165291_buildGRCh37.tsv.gz',data.table = F)
+QT$phenotype <- 'QT'
+QT <-  TwoSampleMR::format_data (QT ,
+                                  type = "outcome", 
+                                  snps = NULL,
+                                  header = TRUE,
+                                  phenotype_col = "phenotype",
+                                  snp_col = "variant_id_when_present",
+                                  beta_col = "beta",
+                                  se_col = "standard_error",
+                                  eaf_col = 'effect_allele_frequency',
+                                  effect_allele_col = "effect_allele",
+                                  other_allele_col = "other_allele",
+                                  pval_col = "p_value",
+                                  chr_col = 'chromosome',
+                                  pos_col = 'base_pair_location',
+                                  samplesize_col = 'n')
+QRS <- fread('QRS_GCST007103.tsv',data.table = F)
+QRS$phenotype <- 'QRS'
+QRS <-  TwoSampleMR::format_data (QRS ,
+                                 type = "outcome", 
+                                 snps = NULL,
+                                 header = TRUE,
+                                 phenotype_col = "phenotype",
+                                 snp_col = "rsid",
+                                 beta_col = "beta",
+                                 se_col = "se",
+                                 eaf_col = 'eaf',
+                                 effect_allele_col = "effect_allele",
+                                 other_allele_col = "non_effect_allele",
+                                 pval_col = "p_value",
+                                 chr_col = 'chromosome',
+                                 pos_col = 'position_GRCh37',
+                                 samplesize_col = 'n_total')
+
+PR <- fread('PMID_32439900_PR_1000g_GWAS_EUR.zip',data.table=F)
+PR$phenotype <- 'PR'
+PR <-  TwoSampleMR::format_data (PR ,
+                                  type = "outcome", 
+                                  snps = NULL,
+                                  header = TRUE,
+                                  phenotype_col = "phenotype",
+                                  snp_col = "MarkerName",
+                                  beta_col = "Effect",
+                                  se_col = "StdErr",
+                                  eaf_col = 'EAF',
+                                  effect_allele_col = "Allele1",
+                                  other_allele_col = "Allele2",
+                                  pval_col = "P.value",
+                                  chr_col = 'chr',
+                                  pos_col = 'pos',
+                                  samplesize_col = 'n_total')
+PR$samplesize.outcome <- 293051
+PWD <- fread('GCST004826_Pwave_duration.txt.gz',data.table=F)
+PWD$phenotype <- 'PWD'
+PWD <-  TwoSampleMR::format_data (PWD ,
+                                 type = "outcome", 
+                                 snps = NULL,
+                                 header = TRUE,
+                                 phenotype_col = "phenotype",
+                                 snp_col = "MarkerName",
+                                 beta_col = "Effect",
+                                 se_col = "StdErr",
+                                 eaf_col = 'EAF',
+                                 effect_allele_col = "Allele1",
+                                 other_allele_col = "Allele2",
+                                 pval_col = "P.value",
+                                 chr_col = 'chr',
+                                 pos_col = 'pos',
+                                 samplesize_col = 'n_total')
+PWD$samplesize.outcome <- 6778+37678 
+
+SSS <- fread('Sumstats_SSS_20220809',data.table=F)
+SSS$Chrom <- sub("^chr", "", SSS$Chrom )
+SSS$phenotype <- 'SSS'
+SSS$n_total <- 6778+37678 
+SSS$beta <- log(SSS$OR)
+SSS <-  TwoSampleMR::format_data (SSS ,
+                                  type = "outcome", 
+                                  snps = NULL,
+                                  header = TRUE,
+                                  phenotype_col = "phenotype",
+                                  snp_col = "rsName",
+                                  beta_col = "beta",
+                                  se_col = "SE",
+                                  eaf_col = 'MAF',
+                                  effect_allele_col = "Amin",
+                                  other_allele_col = "Amaj",
+                                  pval_col = "Pval",
+                                  chr_col = 'Chrom',
+                                  pos_col = 'Pos',
+                                  samplesize_col = 'n_total')
+
+#analysis 
+
+data_frames <- list(AVB_format, LBBB_format, RBBB_format, AF, BrS,SSS, CAD, HF, PR, PWD, QRS, QT)
+
+rg_results <- list()
+pb <- progress::progress_bar$new(total = length(data_frames) * 3)  # 根据需要更新进度条的总数
+
+
+traits <- c("AVB", "LBBB", "RBBB")
+
+# 循环处理每个数据框
+for (df in data_frames) {
+  # 选择需要的列，并重命名 samplesize.outcome 列为 N
+  colnames(df)[colnames(df) == "samplesize.outcome"] <- "N"
+  df$Z <- df$beta.outcome / df$se.outcome  # 计算 Z 值
+  df <- df[, c("SNP", "se.outcome", "beta.outcome", "pval.outcome", 
+               "effect_allele.outcome", "other_allele.outcome", 
+               "eaf.outcome", "outcome", "id.outcome", "N", "Z")]
+  
+  # 使用当前数据框的性状名称作为键
+  for (trait in traits) {
+    # 使用 ldscr 进行后续分析
+    munged_sumstats <- list(trait = df)
+    
+    rg_res <- ldscr::ldsc_rg(munged_sumstats = munged_sumstats, ancestry = "EUR")
+    
+    # 保存结果
+    rg_results[[paste(trait, df$outcome[1], sep = "_")]] <- rg_res[["rg"]]  # 使用 trait 和 outcome 作为列表键
+    
+    # 更新进度条
+    pb$tick()
+  }
+}
+
+# 处理结果
+res <- do.call(rbind, rg_results)
+print(res)
+
