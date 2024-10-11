@@ -595,23 +595,6 @@ BrS <-  TwoSampleMR::format_data (BrS ,
                                   chr_col = 'chromosome',
                                   pos_col = 'base_pair_location',
                                   samplesize_col = 'n_all')
-QT <- fread('QT_GCST90165291_buildGRCh37.tsv.gz',data.table = F)
-QT$phenotype <- 'QT'
-QT <-  TwoSampleMR::format_data (QT ,
-                                  type = "outcome", 
-                                  snps = NULL,
-                                  header = TRUE,
-                                  phenotype_col = "phenotype",
-                                  snp_col = "variant_id_when_present",
-                                  beta_col = "beta",
-                                  se_col = "standard_error",
-                                  eaf_col = 'effect_allele_frequency',
-                                  effect_allele_col = "effect_allele",
-                                  other_allele_col = "other_allele",
-                                  pval_col = "p_value",
-                                  chr_col = 'chromosome',
-                                  pos_col = 'base_pair_location',
-                                  samplesize_col = 'n')
 QRS <- fread('QRS_GCST007103.tsv',data.table = F)
 QRS$phenotype <- 'QRS'
 QRS <-  TwoSampleMR::format_data (QRS ,
@@ -687,6 +670,24 @@ SSS <-  TwoSampleMR::format_data (SSS ,
                                   chr_col = 'Chrom',
                                   pos_col = 'Pos',
                                   samplesize_col = 'n_total')
+
+CAD <- fread('Sumstats_SSS_20220809',data.table=F)
+CAD$phenotype <- 'CAD'
+CAD <-  TwoSampleMR::format_data (CAD ,
+                                  type = "outcome", 
+                                  snps = NULL,
+                                  header = TRUE,
+                                  phenotype_col = "phenotype",
+                                  snp_col = "rsid",
+                                  beta_col = "Effect",
+                                  se_col = "StdErr",
+                                  eaf_col = 'Freq1',
+                                  effect_allele_col = "Allele1",
+                                  other_allele_col = "Allele2",
+                                  pval_col = 'P-value',
+                                  chr_col = 'CHR',
+                                  pos_col = 'BP',
+                                  samplesize_col = 'N')
 
 #analysis 
 
