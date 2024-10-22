@@ -12,6 +12,7 @@ library(ldscr)
 library(VariantAnnotation)
 library(gwasvcf)
 library(gwasglue)
+library(coloc)
 
 #### LBBB ####
 setwd('~/LBBB')
@@ -596,6 +597,7 @@ print(res)
 
 
 #### fusion and coloc analysis 
+
 #preparation input file
 LBBB_fusion <- select (LBBB, rsid, effect_allele,other_allele,Z)
 colnames(LBBB_fusion) <- ('SNP', 'A1','A2','Z')
@@ -606,7 +608,9 @@ write.table(RBBB_fusion, 'RBBB_fusion.sumstats', sep='\t', quote=FALSE, row.name
 AVB_fusion <- select (LBBB, rsid, effect_allele,other_allele,Z)
 colnames(AVB_fusion) <- ('SNP', 'A1','A2','Z')
 write.table(AVB_fusion, 'AVB_fusion.sumstats', sep='\t', quote=FALSE, row.names=FALSE)
-## fusion pipeline in Linux exampl, in which coloc version ==5.1.1 
+### fusion pipeline in Linux exampl, in which coloc version ==5.1.1 
+###suppressMessages(library('plink2R'))
+###suppressMessages(library("optparse"))
 #Rscript FUSION.assoc_test.R \
 #--sumstats AVB_fusion.sumstats \
 #--weights ./WEIGHTS/GTExv8.EUR.Heart_Left_Ventricle.pos \
