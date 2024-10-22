@@ -644,3 +644,51 @@ CMplot(df,plot.type = "m",
        signal.col = c('#30A9DE','#EFDC05','#E53A40','#090707'), 
        highlight = AVB$EQTL.ID[AVB$COLOC.PP4 > 0.8],
        multracks = F, file.output = F)
+#LBBB
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(CMplot)
+file_list <- paste0("LBBB.", 1:22, ".dat")
+data_list <- lapply(file_list, read.table, header = TRUE)
+LBBB <- do.call(rbind, data_list)
+LBBB$ID <- sub("\\..*", "", LBBB$ID)
+LBBB$GeneSymbol <- mapIds(org.Hs.eg.db, keys = LBBB$ID, column = "SYMBOL", keytype = "ENSEMBL", multiVals = "first")
+LBBB$fdr <- p.adjust(LBBB$TWAS.P,method = 'fdr')
+LBBB_P<- LBBB  |> dplyr::filter(fdr < 0.05 )
+df <- select(LBBB,EQTL.ID,CHR,P0,fdr)
+colnames(df) <- c('SNP', 'CHR', 'BP','P')
+df <- df  |> dplyr::filter(P < 1 )
+df <- df  |> dplyr::filter(P > 0 )
+df <- df[!is.na(df$SNP), ]
+
+CMplot(df,plot.type = "m", 
+       threshold = 0.05, 
+       threshold.col = c("grey","black"),threshold.lty = c(1,2), threshold.lwd = c(1,1),
+       amplify = T, signal.cex = c(1,1), signal.pch = c(20,20), 
+       signal.col = c('#30A9DE','#EFDC05','#E53A40','#090707'), 
+       highlight = LBBB$EQTL.ID[LBBB$COLOC.PP4 > 0.8],
+       multracks = F, file.output = F)
+#RBBB
+library(org.Hs.eg.db)
+library(clusterProfiler)
+library(CMplot)
+file_list <- paste0("RBBB.", 1:22, ".dat")
+data_list <- lapply(file_list, read.table, header = TRUE)
+RBBB <- do.call(rbind, data_list)
+RBBB$ID <- sub("\\..*", "", RBBB$ID)
+RBBB$GeneSymbol <- mapIds(org.Hs.eg.db, keys = RBBB$ID, column = "SYMBOL", keytype = "ENSEMBL", multiVals = "first")
+RBBB$fdr <- p.adjust(RBBB$TWAS.P,method = 'fdr')
+RBBB_P<- RBBB  |> dplyr::filter(fdr < 0.05 )
+df <- select(RBBB,EQTL.ID,CHR,P0,fdr)
+colnames(df) <- c('SNP', 'CHR', 'BP','P')
+df <- df  |> dplyr::filter(P < 1 )
+df <- df  |> dplyr::filter(P > 0 )
+df <- df[!is.na(df$SNP), ]
+
+CMplot(df,plot.type = "m", 
+       threshold = 0.05, 
+       threshold.col = c("grey","black"),threshold.lty = c(1,2), threshold.lwd = c(1,1),
+       amplify = T, signal.cex = c(1,1), signal.pch = c(20,20), 
+       signal.col = c('#30A9DE','#EFDC05','#E53A40','#090707'), 
+       highlight = RBBB$EQTL.ID[RBBB$COLOC.PP4 > 0.8],
+       multracks = F, file.output = F)
