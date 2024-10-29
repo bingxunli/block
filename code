@@ -692,3 +692,131 @@ CMplot(df,plot.type = "m",
        signal.col = c('#30A9DE','#EFDC05','#E53A40','#090707'), 
        highlight = RBBB$EQTL.ID[RBBB$COLOC.PP4 > 0.8],
        multracks = F, file.output = F)
+#### coloc for PheWAS findings
+library(locuscomparer)
+library(coloc)
+### eGFR
+eGFR <- fread('20171017_MW_eGFR_overall_EA_nstud42.dbgap.txt.gz',data.table = F)
+colnames(eGFR)[3] <- 'rsid'
+colnames(eGFR)[9] <- 'pval'
+eGFR<- eGFR  |> dplyr::filter(Freq1 < 1 )
+#提取一个区域
+#rs2932971
+rs2932971 = AVB %>% filter(chr==3,
+                         pos>=23756664-300000,
+                         pos <=23905712+300000)
+data = merge(rs2932971,eGFR,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$Effect), ]
+data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==Allele1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$StdErr^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("Effect","VAR.y","rsid",'Freq1','n_total_sum')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+
+#rs56065557
+rs56065557 = AVB %>% filter(chr==3,
+                              pos>=185636428-300000,
+                              pos <=185636428+300000)
+data = merge(rs56065557,eGFR,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$Effect), ]
+data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==Allele1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$StdErr^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("Effect","VAR.y","rsid",'Freq1','n_total_sum')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+#pph4 96.1%
+eGFR1<- eGFR  |> dplyr::filter(Chr ==3,
+                               Pos_b37>=185636428-300000,
+                               Pos_b37 <=185636428+300000)
+
+print(locuscompare(in_fn1 = IGF2BP2_AVB, 
+             in_fn2 = eGFR1, 
+             title1 = 'rs56065557', #横坐标
+             title2 = 'eGFR')#纵坐标)
+)
+      
+#rs1472095
+rs1472095<- LBBB  |> dplyr::filter(chr ==4,
+                               pos>=23816454-300000,
+                               pos <=23816454+300000)
+data = merge(rs1472095,eGFR,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$Effect), ]
+data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==Allele1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$StdErr^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("Effect","VAR.y","rsid",'Freq1','n_total_sum')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+eGFR1<- eGFR  |> dplyr::filter(Chr ==4,
+                               Pos_b37>=23816454-300000,
+                               Pos_b37 <=23816454+300000)
+
+print(locuscompare(in_fn1 = rs1472095, 
+                   in_fn2 = eGFR1, 
+                   title1 = 'rs1472095', #横坐标
+                   title2 = 'eGFR')#纵坐标
+      )
+#rs61931006
+rs61931006<- LBBB  |> dplyr::filter(chr ==12,
+                               pos>=114414703-300000,
+                               pos <=114414703+300000)
+data = merge(rs61931006,eGFR,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$Effect), ]
+data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==Allele1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$StdErr^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("Effect","VAR.y","rsid",'Freq1','n_total_sum')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+
+
