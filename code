@@ -558,7 +558,15 @@ CAD <-  TwoSampleMR::format_data (CAD ,
                                   chr_col = 'CHR',
                                   pos_col = 'BP',
                                   samplesize_col = 'N')
-
+BMI <- fread('fat-distn.giant.ukbb.meta-analysis.bmi.combined.tbl.gz')
+BMI$N <- 694649
+split_column <- strsplit(as.character(BMI$SNP), ":")
+col_names <- c("rsid", "a2",'a1')
+split_data_frame <- as.data.frame(do.call(rbind, split_column))
+colnames(split_data_frame) <- col_names
+BMI <- cbind(BMI, split_data_frame)
+BMI$Allele1 <- toupper(BMI$Allele1 )
+BMI$Allele2 <- toupper(BMI$Allele2 )
 #analysis 
 
 data_frames <- list(AVB_format, LBBB_format, RBBB_format, AF, BrS,SSS, CAD, HF, PR, PWD, QRS, QT)
