@@ -702,78 +702,25 @@ CMplot(df,plot.type = "m",
        highlight = RBBB$EQTL.ID[RBBB$COLOC.PP4 > 0.8],
        multracks = F, file.output = F)
 #### coloc for PheWAS findings
-library(locuscomparer)
+library(dplyr)
 library(coloc)
-### eGFR
+library(data.table)
+library(locuscomparer)
+AVB <- fread('AVB.txt')
+LBBB <- fread('LBBB.txt')
+###rs1472095
 eGFR <- fread('20171017_MW_eGFR_overall_EA_nstud42.dbgap.txt.gz',data.table = F)
+eGFR_mix <- fread('20171017_MW_eGFR_overall_ALL_nstud61.dbgap.txt.gz',data.table = F)
 colnames(eGFR)[3] <- 'rsid'
 colnames(eGFR)[9] <- 'pval'
 eGFR<- eGFR  |> dplyr::filter(Freq1 < 1 )
-#提取一个区域
-#rs2932971
-rs2932971 = AVB %>% filter(chr==3,
-                         pos>=23756664-300000,
-                         pos <=23905712+300000)
-data = merge(rs2932971,eGFR,by="rsid")
-data = data[!duplicated(data$rsid),]
-data = data[complete.cases(data$beta), ]
-data = data[complete.cases(data$Effect), ]
-data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
-data = data %>% mutate(beta = ifelse(effect_allele==Allele1,beta,-beta))
-data$VAR.x = data$se^2
-data$VAR.y = data$StdErr^2
-data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
-data1 = data[,c("beta","VAR.x","rsid")]
-data2 = data[,c("Effect","VAR.y","rsid",'Freq1','n_total_sum')]
-colnames(data1)=c("beta","varbeta","snp")
-colnames(data2)=c("beta","varbeta","snp","MAF","N")
-data1 = as.list(data1)
-data2 = as.list(data2)
-data1$type = "cc"
-data2$type = "quant"
-res = coloc.abf(data1,data2)
-print(res)
-need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
-
-#rs56065557
-rs56065557 = AVB %>% filter(chr==3,
-                              pos>=185636428-300000,
-                              pos <=185636428+300000)
-data = merge(rs56065557,eGFR,by="rsid")
-data = data[!duplicated(data$rsid),]
-data = data[complete.cases(data$beta), ]
-data = data[complete.cases(data$Effect), ]
-data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
-data = data %>% mutate(beta = ifelse(effect_allele==Allele1,beta,-beta))
-data$VAR.x = data$se^2
-data$VAR.y = data$StdErr^2
-data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
-data1 = data[,c("beta","VAR.x","rsid")]
-data2 = data[,c("Effect","VAR.y","rsid",'Freq1','n_total_sum')]
-colnames(data1)=c("beta","varbeta","snp")
-colnames(data2)=c("beta","varbeta","snp","MAF","N")
-data1 = as.list(data1)
-data2 = as.list(data2)
-data1$type = "cc"
-data2$type = "quant"
-res = coloc.abf(data1,data2)
-print(res)
-need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
-#pph4 96.1%
-eGFR1<- eGFR  |> dplyr::filter(Chr ==3,
-                               Pos_b37>=185636428-300000,
-                               Pos_b37 <=185636428+300000)
-
-print(locuscompare(in_fn1 = IGF2BP2_AVB, 
-             in_fn2 = eGFR1, 
-             title1 = 'rs56065557', #横坐标
-             title2 = 'eGFR')#纵坐标)
-)
-      
-#rs1472095
+colnames(eGFR_mix)[3] <- 'rsid'
+colnames(eGFR_mix)[9] <- 'pval'
+eGFR_mix<- eGFR_mix  |> dplyr::filter(Freq1 < 1 )
 rs1472095<- LBBB  |> dplyr::filter(chr ==4,
-                               pos>=23816454-300000,
-                               pos <=23816454+300000)
+                                   pos>=23816454-300000,
+                                   pos <=23816454+300000)
+#EA
 data = merge(rs1472095,eGFR,by="rsid")
 data = data[!duplicated(data$rsid),]
 data = data[complete.cases(data$beta), ]
@@ -802,12 +749,57 @@ print(locuscompare(in_fn1 = rs1472095,
                    in_fn2 = eGFR1, 
                    title1 = 'rs1472095', #横坐标
                    title2 = 'eGFR')#纵坐标
-      )
-#rs61931006
+)
+
+#MIXED
+data = merge(rs1472095,eGFR_mix,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$Effect), ]
+data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==Allele1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$StdErr^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("Effect","VAR.y","rsid",'Freq1','n_total_sum')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+
+###rs61931006
 rs61931006<- LBBB  |> dplyr::filter(chr ==12,
-                               pos>=114414703-300000,
-                               pos <=114414703+300000)
+                                    pos>=114414703-300000,
+                                    pos <=114414703+300000)
+#EA
 data = merge(rs61931006,eGFR,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$Effect), ]
+data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==Allele1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$StdErr^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("Effect","VAR.y","rsid",'Freq1','n_total_sum')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+#MIXED
+data = merge(rs61931006,eGFR_mix,by="rsid")
 data = data[!duplicated(data$rsid),]
 data = data[complete.cases(data$beta), ]
 data = data[complete.cases(data$Effect), ]
@@ -829,3 +821,1211 @@ print(res)
 need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
 
 
+###rs2932971
+rs2932971<- AVB  |> dplyr::filter(chr ==4,
+                                  pos>=23817261-300000,
+                                  pos <=23817261+300000)
+#EA
+data = merge(rs2932971,eGFR,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$Effect), ]
+data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==Allele1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$StdErr^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("Effect","VAR.y","rsid",'Freq1','n_total_sum')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+#MIXED
+data = merge(rs2932971,eGFR_mix,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$Effect), ]
+data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==Allele1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$StdErr^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("Effect","VAR.y","rsid",'Freq1','n_total_sum')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+###rs7433306
+rs7433306<- AVB  |> dplyr::filter(chr ==3,
+                                  pos>=38729148-300000,
+                                  pos <=38729148+300000)
+#Atrial fibrillation Nielsen
+AF_Nielsen <- fread('nielsen-thorolfsdottir-willer-NG2018-AFib-gwas-summary-statistics.tbl.gz',data.table = F)
+colnames(AF_Nielsen)[2] <- 'rsid'
+colnames(AF_Nielsen)[10] <- 'pval'
+data = merge(rs7433306,AF_Nielsen,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$Effect_A2), ]
+data = data %>% filter((effect_allele==A1&other_allele==A2)|(effect_allele==A1&other_allele==A2)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A2,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$StdErr^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("Effect_A2","VAR.y","rsid")]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "cc"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+AF_Nielsen1<- AF_Nielsen  |> dplyr::filter(CHR ==3,
+                                           POS_GRCh37>=38729148-300000,
+                                           POS_GRCh37 <=38729148+300000)
+AF_Nielsen$pval <- as.numeric(AF_Nielsen$pval)
+print(locuscompare(in_fn1 = rs7433306, 
+                   in_fn2 = AF_Nielsen1, 
+                   title1 = 'rs7433306', #横坐标
+                   title2 = 'eGFR',snp='rs7433306')#纵坐标
+)
+#Atrial fibrillation Roselli
+AF_Roselli <- fread('AF_HRC_GWAS_ALLv11.txt',data.table = FALSE)
+colnames(AF_Roselli)[1] <- 'rsid'
+colnames(AF_Roselli)[8] <- 'pval'
+AF_Roselli$pval <- as.numeric(AF_Roselli$pval)
+data = merge(rs7433306,AF_Roselli,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$Effect), ]
+data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele1&other_allele==Allele2)) 
+data = data %>% mutate(beta = ifelse(effect_allele==Allele1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$StdErr^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("Effect","VAR.y","rsid")]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "cc"
+res = coloc.abf(data1,data2)
+print(res)
+AF_Roselli1<- AF_Roselli  |> dplyr::filter(chr ==3,
+                                           pos>=38729148-300000,
+                                           pos <=38729148+300000)
+print(locuscompare(in_fn1 = rs7433306, 
+                   in_fn2 = AF_Roselli1, 
+                   title1 = 'rs7433306', #横坐标
+                   title2 = 'AF_Roselli1',snp='rs7433306')#纵坐标
+)
+#Pulse rate (automated reading)
+Pulse_rate <- fread('f.102.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(Pulse_rate)[16] <- 'rsid'
+colnames(Pulse_rate)[12] <- 'pval'
+data = merge(rs7433306,Pulse_rate,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+data = data %>% filter((effect_allele==A1&other_allele==A2)|(effect_allele==A1&other_allele==A2)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF_UKB','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp",'MAF','N')
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+Pulse_rate1<- Pulse_rate  |> dplyr::filter(CHR ==3,
+                                           BP>=38729148-300000,
+                                           BP <=38729148+300000)
+print(locuscompare(in_fn1 = rs7433306, 
+                   in_fn2 = Pulse_rate1, 
+                   title1 = 'rs7433306', #横坐标
+                   title2 = 'Pulse_rate',snp='rs7433306')#纵坐标
+)
+###rs10936712
+rs10936712<- AVB  |> dplyr::filter(chr ==3,
+                                   pos>=172084486-300000,
+                                   pos <=172084486+300000)
+#Red cell distribution width (three-way meta)
+RCD_three <- fread('rdw_N171529_narrow_form.tsv.gz')
+colnames(RCD_three)[2] <- 'rsid'
+colnames(RCD_three)[11] <- 'pval'
+RCD_three$n <- 171529
+data = merge(rs10936712,RCD_three,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$EFFECT), ]
+data = data %>% filter((effect_allele==ALT&other_allele==REF)|(effect_allele==ALT&other_allele==REF)) 
+data = data %>% mutate(beta = ifelse(effect_allele==ALT,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("EFFECT","VAR.y","rsid",'ALT_FREQ','n')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp",'MAF','N')
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+#Red cell distribution width (two-way meta)
+RCD_two <- fread('rdw_N171529_ukbb_ukbil_meta.tsv.gz')
+colnames(RCD_two) <- 'rsid'
+data = merge(rs10936712,RCD_two,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$EFFECT), ]
+data = data %>% filter((effect_allele==ALT&other_allele==REF)|(effect_allele==ALT&other_allele==REF)) 
+data = data %>% mutate(beta = ifelse(effect_allele==ALT,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("EFFECT","VAR.y","rsid",'EAF','N')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp",'MAF','N')
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+#Immature fraction of reticulocytes (three-way meta)
+IFR_three <- fread('irf_N170548_narrow_form.tsv.gz')
+IFR_three$N <- 170548
+colnames(IFR_three)[2] <- 'rsid'
+colnames(IFR_three)[11] <- 'pval'
+data = merge(rs10936712,IFR_three,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$EFFECT), ]
+data = data %>% filter((effect_allele==ALT&other_allele==REF)|(effect_allele==ALT&other_allele==REF)) 
+data = data %>% mutate(beta = ifelse(effect_allele==ALT,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("EFFECT","VAR.y","rsid",'ALT_FREQ','N')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp",'MAF','N')
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+IFR_three1<- IFR_three  |> dplyr::filter(CHR ==3,
+                                         BP>=171802276-300000,
+                                         BP <=171802276+300000)
+print(locuscompare(in_fn1 = rs10936712, 
+                   in_fn2 = IFR_three1, 
+                   title1 = 'rs10936712', #横坐标
+                   title2 = 'IFR_three_meta',snp='rs10936712')#纵坐标
+)
+#Immature fraction of reticulocytes (two-way meta)
+IFR_two <- fread('irf_N170548_ukbb_ukbil_meta.tsv.gz')
+colnames(IFR_two)[1] <- 'rsid'
+colnames(IFR_two)[10] <- 'pval'
+data = merge(rs10936712,IFR_two,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$Beta), ]
+data = data %>% filter((effect_allele==A1&other_allele==A2)|(effect_allele==A2&other_allele==A1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se.x^2
+data$VAR.y = data$se.y^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("Beta","VAR.y","rsid",'EAF','N')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp",'MAF','N')
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+IFR_two1<- IFR_two  |> dplyr::filter(CHR ==3,
+                                     POS>=171802276      -300000,
+                                     POS <=171802276      +300000)
+
+print(locuscompare(in_fn1 = rs10936712, 
+                   in_fn2 = IFR_two1, 
+                   title1 = 'rs10936712', #横坐标
+                   title2 = 'IFR_two_META',snp = 'rs10936712')#纵坐标
+)
+###rs13031826
+rs13031826<- AVB  |> dplyr::filter(chr ==2,
+                                   pos>=178891875-300000,
+                                   pos <=178891875+300000)
+#Heart rate recovery at 10 second
+HR_10 <- fread('HRR10.GWAS.Exericise.ECG.gz')
+colnames(HR_10)[11] <- 'rsid'
+data = merge(rs13031826,HR_10,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta.x), ]
+data = data[complete.cases(data$beta.y), ]
+data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==a1,beta.x,-beta.x))
+data$VAR.x = data$se.x^2
+data$VAR.y = data$se.y^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta.x","VAR.x","rsid")]
+data2 = data[,c("beta.y","VAR.y","rsid",'af','N.y')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+HR_10_1<- HR_10  |> dplyr::filter(chr ==2,
+                                  bp>=179756602-300000,
+                                  bp <=179756602+300000)
+
+print(locuscompare(in_fn1 = rs13031826, 
+                   in_fn2 = HR_10_1, 
+                   title1 = 'rs13031826', #横坐标
+                   title2 = 'HR_10',snp = 'rs13031826')#纵坐标
+)
+#Heart rate recovery at 20 second
+HR_20 <- fread('HRR20.GWAS.Exericise.ECG.gz')
+colnames(HR_20)[11] <- 'rsid'
+data = merge(rs13031826,HR_20,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$Beta), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se.x^2
+data$VAR.y = data$se.y^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("Beta","VAR.y","rsid",'EAF','N.y')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+HR_20_1<- HR_20  |> dplyr::filter(chr ==2,
+                                  bp>=179756602-300000,
+                                  bp <=179756602+300000)
+
+print(locuscompare(in_fn1 = rs13031826, 
+                   in_fn2 = HR_20_1, 
+                   title1 = 'rs13031826', #横坐标
+                   title2 = 'HR_20',snp = 'rs13031826')#纵坐标
+)
+###rs56065557
+rs56065557<- AVB  |> dplyr::filter(chr ==3,
+                                   bp>=185636428-300000,
+                                   bp <=185636428+300000)
+#eGFR EA
+#eGFR mixed
+#Whole body water mass
+water_mass <-fread( 'f.23102.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(water_mass)[16] <- 'rsid'
+colnames(water_mass)[12] <- 'pval'
+data = merge(rs56065557,water_mass,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+#Whole body fat-free mass
+fat_free <- fread('f.23101.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(fat_free)[16] <- 'rsid'
+colnames(fat_free)[12] <- 'pval'
+data = merge(rs56065557,fat_free,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+#Basal metabolic rate
+BMR <- fread('f.23105.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(BMR)[16] <- 'rsid'
+colnames(BMR)[12] <- 'pval'
+data = merge(rs56065557,BMR,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+#Trunk predicted mass
+Trunk_predicted_mass <- fread('f.23130.0.0_res.EUR.sumstats.MACfilt(1).txt.gz')
+colnames(Trunk_predicted_mass)[16] <- 'rsid'
+colnames(Trunk_predicted_mass)[12] <- 'pval'
+data = merge(rs56065557,Trunk_predicted_mass,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+#Trunk fat-free mass
+Trunk_fat_free_mass <- fread('f.23129.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(Trunk_fat_free_mass)[16] <- 'rsid'
+colnames(Trunk_fat_free_mass)[12] <- 'pval'
+data = merge(rs56065557,Trunk_fat_free_mass,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+#Leg fat-free mass (right)
+leg_fat_free_mass <- fread('f.23113.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(leg_fat_free_mass)[16] <- 'rsid'
+colnames(leg_fat_free_mass)[12] <- 'pval'
+data = merge(rs56065557,leg_fat_free_mass,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+#Leg predicted mass (right)
+leg_fat_free_mass <- fread('f.23114.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(leg_fat_free_mass)[16] <- 'rsid'
+colnames(leg_fat_free_mass)[12] <- 'pval'
+data = merge(rs56065557,leg_fat_free_mass,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+#Estimated glomerular filtration rate
+eGFR_Graham <- fread('2018_Graham_et_al_eGFR_meta.tbl')
+library(SNPlocs.Hsapiens.dbSNP155.GRCh37)
+eGFR_Graham$rsid <- NA
+snps <- SNPlocs.Hsapiens.dbSNP155.GRCh37
+
+eGFR_Graham <- eGFR_Graham %>%
+  separate(MarkerName, into = c("Chromosome", "Position_Alleles"), sep = ":") %>%
+  separate(Position_Alleles, into = c("Position", "Alleles"), sep = "_") %>%
+  separate(Alleles, into = c("Ref", "Alt"), sep = "/")
+head(eGFR_Graham)
+
+
+for (i in unique(eGFR_Graham$Chromosome)) {
+  my_pos <- eGFR_Graham$Position[eGFR_Graham$Chromosome == i]
+  chr_snps <- snpsBySeqname(snps, as.character(i))
+  idx <- match(my_pos, pos(chr_snps))
+  rsids <- mcols(chr_snps)$RefSNP_id[idx]
+  eGFR_Graham$rsid[eGFR_Graham$Chromosome == i] <- rsids
+  
+  print(paste("Chromosome", as.character(i), "is processed"))
+}
+
+colnames(eGFR_Graham)[9] <- 'pval'
+eGFR_Graham$SE <- 1/sqrt(2*eGFR_Graham$Freq*(1-eGFR_Graham$Freq)*(eGFR_Graham$Weight+(eGFR_Graham$Zscore)^2))
+eGFR_Graham$BETA <-(eGFR_Graham$Zscore)*(eGFR_Graham$SE)
+data = merge(rs56065557,eGFR_Graham1,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==Alt,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'Freq','Weight')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+eGFR_Graham1<- eGFR_Graham  |> dplyr::filter(Chromosome  ==3,
+                                             Position>=185436428-300000,
+                                             Position <=185436428+300000)
+
+print(locuscompare(in_fn1 = rs56065557, 
+                   in_fn2 = eGFR_Graham1, 
+                   title1 = 'rs13031826', #横坐标
+                   title2 = 'eGFR_Graham',snp = 'rs56065557')#纵坐标
+)
+#Comparative height size at age 10
+height_10 <- fread('f.1697.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(height_10)[16] <- 'rsid'
+colnames(height_10)[12] <- 'pval'
+data = merge(rs56065557,height_10,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+#Weight
+weight <- fread('f.21002.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(weight)[16] <- 'rsid'
+colnames(weight)[12] <- 'pval'
+data = merge(rs56065557,weight,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+#Leg fat-free mass (left)
+Leg_fat_free_mass <- fread('f.23117.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(Leg_fat_free_mass)[16] <- 'rsid'
+colnames(Leg_fat_free_mass)[12] <- 'pval'
+data = merge(rs56065557,Leg_fat_free_mass,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+#Leg predicted mass (left)
+Leg_fat_free_mass <- fread('f.23118.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(Leg_fat_free_mass)[16] <- 'rsid'
+colnames(Leg_fat_free_mass)[12] <- 'pval'
+data = merge(rs56065557,Leg_fat_free_mass,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+#Impedance measures - Weight
+weight <- fread('f.23098.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(weight)[16] <- 'rsid'
+colnames(weight)[12] <- 'pval'
+data = merge(rs56065557,weight,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+#Impedance measures - Arm fat-free mass (left)
+Arm_fat_free_mass <- fread('f.23105.0.0_res.EUR.sumstats.MACfilt(1).txt.gz')
+colnames(Arm_fat_free_mass)[16] <- 'rsid'
+colnames(Arm_fat_free_mass)[12] <- 'pval'
+data = merge(rs56065557,Arm_fat_free_mass,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+#Impedance measures - Arm predicted mass (left)
+Arm_fat_free_mass <- fread('f.23106.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(Arm_fat_free_mass)[16] <- 'rsid'
+colnames(Arm_fat_free_mass)[12] <- 'pval'
+data = merge(rs56065557,Arm_fat_free_mass,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+#Standing height
+Standing_height <- fread('f.50.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(Standing_height)[16] <- 'rsid'
+colnames(Standing_height)[12] <- 'pval'
+data = merge(rs56065557,Standing_height,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+#Impedance measures - Arm predicted mass (right)
+Arm_predicted_mass <- fread('f.23122.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(Arm_predicted_mass)[16] <- 'rsid'
+colnames(Arm_predicted_mass)[12] <- 'pval'
+data = merge(rs56065557,Arm_predicted_mass,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+#Impedance measures - Arm fat-free mass (right)
+Arm_predicted_mass <- fread('f.23121.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(Arm_predicted_mass)[16] <- 'rsid'
+colnames(Arm_predicted_mass)[12] <- 'pval'
+data = merge(rs56065557,Arm_predicted_mass,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+#Resting heart rate
+data = merge(rs56065557,HR,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+data = data %>% filter((effect_allele==A1&other_allele==A0)|(effect_allele==A0&other_allele==A1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','N')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+HR1<- HR  |> dplyr::filter(CHR ==3,
+                                           BP>=185436428-300000,
+                                           BP <=185436428+300000)
+print(locuscompare(in_fn1 = rs56065557, 
+                   in_fn2 = HR1, 
+                   title1 = 'rs56065557', #横坐标
+                   title2 = 'HR',snp = 'rs56065557')#纵坐标
+)
+#Impedance measures - Trunk fat mass
+Trunk_fat_mass <- fread('f.23128.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(Trunk_fat_mass)[16] <- 'rsid'
+colnames(Trunk_fat_mass)[12] <- 'pval'
+data = merge(rs56065557,Trunk_fat_mass,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+Trunk_fat_mass1<- Trunk_fat_mass  |> dplyr::filter(CHR ==3,
+                                                   BP>=185436428-300000,
+                                                   BP <=185436428+300000)
+
+print(locuscompare(in_fn1 = rs56065557, 
+                   in_fn2 = Trunk_fat_mass1, 
+                   title1 = 'rs56065557', #横坐标
+                   title2 = 'Trunk_fat_mass',snp = 'rs56065557')#纵坐标
+)
+#Hip circumference
+Hip_circumference <- fread('f.49.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(Hip_circumference)[16] <- 'rsid'
+colnames(Hip_circumference)[12] <- 'pval'
+data = merge(rs56065557,Hip_circumference,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+#Body Mass Index
+bmi <- fread('bmi.giant-ukbb.meta-analysis.combined.23May2018.txt.gz')
+bmi$SNP <- sub(":.*", "", bmi$SNP)
+colnames(bmi)[3] <- 'rsid'
+data = merge(rs56065557,bmi,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==Tested_Allele,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'Freq_Tested_Allele','N.y')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+#Pulse rate (automated reading)
+data = merge(rs76734697,Pulse_rate,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+data = data %>% filter((effect_allele==A1&other_allele==A2)|(effect_allele==A1&other_allele==A2)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF_UKB','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp",'MAF','N')
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+Pulse_rate1<- Pulse_rate  |> dplyr::filter(CHR ==3,
+                                                   BP>=185436428-300000,
+                                                   BP <=185436428+300000)
+print(locuscompare(in_fn1 = rs56065557, 
+                   in_fn2 = Pulse_rate1, 
+                   title1 = 'rs56065557', #横坐标
+                   title2 = 'Pulse_rate',snp = 'rs56065557')#纵坐标
+)
+#Impedance measures - Arm fat mass (right)
+Arm_fat_mass <- fread('f.23120.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(Arm_fat_mass)[16] <- 'rsid'
+colnames(Arm_fat_mass)[12] <- 'pval'
+data = merge(rs56065557,Arm_fat_mass,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+Arm_fat_mass1<- Arm_fat_mass  |> dplyr::filter(CHR ==3,
+                                               BP>=185436428-300000,
+                                               BP <=185436428+300000)
+
+print(locuscompare(in_fn1 = rs56065557, 
+                   in_fn2 = Arm_fat_mass1, 
+                   title1 = 'rs56065557', #横坐标
+                   title2 = 'Arm fat mass (right)',snp = 'rs56065557')#纵坐标
+)
+
+#Impedance measures - Whole body fat mass
+fat_mass <- fread('f.23100.0.0_res.EUR.sumstats.MACfilt(1).txt.gz')
+colnames(fat_mass)[16] <- 'rsid'
+colnames(fat_mass)[12] <- 'pval'
+data = merge(rs56065557,fat_mass,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+fat_mass1<- fat_mass  |> dplyr::filter(CHR ==3,
+                                       BP>=185436428-300000,
+                                       BP <=185436428+300000)
+
+print(locuscompare(in_fn1 = rs56065557, 
+                   in_fn2 = fat_mass1, 
+                   title1 = 'rs56065557', #横坐标
+                   title2 = 'Whole body fat mass',snp = 'rs56065557')#纵坐标
+)
+
+#Impedance measures - Arm fat mass (left)
+Arm_fat_mass <- fread('f.23124.0.0_res.EUR.sumstats.MACfilt.txt.gz')
+colnames(Arm_fat_mass)[16] <- 'rsid'
+colnames(Arm_fat_mass)[12] <- 'pval'
+data = merge(rs56065557,Arm_fat_mass,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+#data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele2&other_allele==Allele1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+Arm_fat_mass1<- Arm_fat_mass  |> dplyr::filter(CHR ==3,
+                                               BP>=185436428-300000,
+                                               BP <=185436428+300000)
+
+print(locuscompare(in_fn1 = rs56065557, 
+                   in_fn2 = Arm_fat_mass1, 
+                   title1 = 'rs56065557', #横坐标
+                   title2 = 'Arm fat mass (left)',snp = 'rs56065557')#纵坐标
+)
+###rs76734697
+rs76734697<- AVB  |> dplyr::filter(chr ==5,
+                                   pos>=137897780-300000,
+                                   pos <=137897780+300000)
+#Atrial fibrillation Nielsen
+data = merge(rs76734697,AF_Nielsen,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$Effect_A2), ]
+data = data %>% filter((effect_allele==A1&other_allele==A2)|(effect_allele==A1&other_allele==A2)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A2,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$StdErr^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("Effect_A2","VAR.y","rsid")]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "cc"
+res = coloc.abf(data1,data2)
+AF_Nielsen1<- AF_Nielsen  |> dplyr::filter(CHR ==5,
+                                           POS_GRCh37>=137233469-300000,
+                                           POS_GRCh37 <=137233469+300000)
+
+print(locuscompare(in_fn1 = rs76734697, 
+                   in_fn2 = AF_Nielsen1, 
+                   title1 = 'rs76734697', #横坐标
+                   title2 = 'AF_Nielsen',snp = 'rs76734697')#纵坐标
+)
+#Resting heart rate
+HR <- fread('ZhuZ_30940143_ukbb.bolt_460K_selfRepWhite.rhrmean.assoc.gz')
+library(SNPlocs.Hsapiens.dbSNP155.GRCh37)
+HR$rsid <- NA
+snps <- SNPlocs.Hsapiens.dbSNP155.GRCh37
+
+for (i in unique(HR$CHR)) {
+  my_pos <- HR$BP[HR$CHR == i]
+  chr_snps <- snpsBySeqname(snps, as.character(i))
+  idx <- match(my_pos, pos(chr_snps))
+  rsids <- mcols(chr_snps)$RefSNP_id[idx]
+  HR$rsid[HR$CHR == i] <- rsids
+  
+  print(paste("Chromosome", as.character(i), "is processed"))
+}
+HR$SE <- as.numeric(HR$SE)
+HR$MAF <- as.numeric(HR$MAF)
+HR$BETA<- as.numeric(HR$BETA)
+HR$CHR<- as.numeric(HR$CHR)
+HR$BP<- as.numeric(HR$BP)
+HR$P<- as.numeric(HR$P)
+colnames(HR)[11] <- 'pval'
+data = merge(rs76734697,HR,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+data = data %>% filter((effect_allele==A1&other_allele==A0)|(effect_allele==A0&other_allele==A1)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF','N')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp","MAF","N")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
+HR1<- HR  |> dplyr::filter(CHR ==5,
+                           BP>=137233469-300000,
+                           BP <=137233469+300000)
+
+print(locuscompare(in_fn1 = rs76734697, 
+                   in_fn2 = HR1, 
+                   title1 = 'rs76734697', #横坐标
+                   title2 = 'resting HR',snp = 'rs76734697')#纵坐标
+)
+
+
+#Atrial fibrillation Roselli
+data = merge(rs76734697,AF_Roselli,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$Effect), ]
+data = data %>% filter((effect_allele==Allele1&other_allele==Allele2)|(effect_allele==Allele1&other_allele==Allele2)) 
+data = data %>% mutate(beta = ifelse(effect_allele==Allele1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$StdErr^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("Effect","VAR.y","rsid")]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "cc"
+res = coloc.abf(data1,data2)
+print(res)
+AF_Roselli1<- AF_Roselli  |> dplyr::filter(chr ==5,
+                                           pos>=137233469-300000,
+                                           pos <=137233469+300000)
+
+print(locuscompare(in_fn1 = rs76734697, 
+                   in_fn2 = AF_Roselli1, 
+                   title1 = 'rs76734697', #横坐标
+                   title2 = 'AF_Roselli',snp = 'rs76734697')#纵坐标
+)
+#Pulse rate (automated reading)
+data = merge(rs56065557,Pulse_rate,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$BETA), ]
+data = data %>% filter((effect_allele==A1&other_allele==A2)|(effect_allele==A1&other_allele==A2)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("BETA","VAR.y","rsid",'MAF_UKB','NCHROBS')]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp",'MAF','N')
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "quant"
+res = coloc.abf(data1,data2)
+print(res)
+Pulse_rate1<- Pulse_rate  |> dplyr::filter(CHR ==5,
+                                           BP>=137233469-300000,
+                                           BP <=137233469+300000)
+print(locuscompare(in_fn1 = rs76734697, 
+                   in_fn2 = Pulse_rate1, 
+                   title1 = 'rs76734697', #横坐标
+                   title2 = 'Pulse_rate',snp = 'rs76734697')#纵坐标
+)
+#Diagnoses - secondary ICD10: I48 Atrial fibrillation and flutter
+AF_UKB <- fread('41204_I48_logistic.EUR.sumstats.MACfilt.txt.gz',data.table = F)
+AF_UKB$beta <- log(AF_UKB$OR)
+colnames(AF_UKB)[16] <- 'rsid'
+colnames(AF_UKB)[12] <- 'pval'
+data = merge(rs76734697,AF_UKB,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta.x), ]
+data = data[complete.cases(data$beta.y), ]
+data = data %>% filter((effect_allele==A1&other_allele==A2)|(effect_allele==A1&other_allele==A2)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A1,beta.x,-beta.x))
+data$VAR.x = data$se^2
+data$VAR.y = data$SE^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta.x","VAR.x","rsid")]
+data2 = data[,c("beta.y","VAR.y","rsid")]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "cc"
+res = coloc.abf(data1,data2)
+print(res)
+AF_UKB1<- AF_UKB  |> dplyr::filter(CHR ==5,
+                                   BP>=137233469-300000,
+                                   BP <=137233469+300000)
+print(locuscompare(in_fn1 = rs76734697, 
+                   in_fn2 = AF_UKB1, 
+                   title1 = 'rs76734697', #横坐标
+                   title2 = 'AF_UKB',snp = 'rs76734697')#纵坐标
+)
+###rs199561133
+rs199561133<- AVB  |> dplyr::filter(chr ==4,
+                                    pos>=110760807-300000,
+                                    pos <=110760807+300000)
+#Atrial fibrillation Nielsen
+data = merge(rs199561133,AF_Nielsen,by="rsid")
+data = data[!duplicated(data$rsid),]
+data = data[complete.cases(data$beta), ]
+data = data[complete.cases(data$Effect_A2), ]
+data = data %>% filter((effect_allele==A1&other_allele==A2)|(effect_allele==A1&other_allele==A2)) 
+data = data %>% mutate(beta = ifelse(effect_allele==A2,beta,-beta))
+data$VAR.x = data$se^2
+data$VAR.y = data$StdErr^2
+data = data[data$VAR.x!=0 & data$VAR.y!=0 ,]
+data1 = data[,c("beta","VAR.x","rsid")]
+data2 = data[,c("Effect_A2","VAR.y","rsid")]
+colnames(data1)=c("beta","varbeta","snp")
+colnames(data2)=c("beta","varbeta","snp")
+data1 = as.list(data1)
+data2 = as.list(data2)
+data1$type = "cc"
+data2$type = "cc"
+res = coloc.abf(data1,data2)
+print(res)
+need_result <- res$results %>% dplyr::arrange(desc(SNP.PP.H4))
