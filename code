@@ -16,6 +16,7 @@ library(gwasglue)
 library(coloc)
 library(org.Hs.eg.db)
 library(clusterProfiler)
+library(GWASinspector)
 
 #### LBBB ####
 setwd('~/LBBB')
@@ -101,30 +102,7 @@ for (i in 1:nrow(orig_loci)){
 filter_list <- do.call(rbind, filter_list) %>% distinct(rsid, .keep_all = TRUE)
 LBBB_meta_filtered <- subset(LBBB_meta_clump, ! rsid %in% filter_list$rsid)
 write.table(LBBB_meta_filtered, 'LBBB_meta_filtered.txt', sep='\t', quote=FALSE, row.names=FALSE)
-# 绘制曼哈顿图 #
-#随机抽取10000个SNP绘制曼哈顿图
-set.seed(123)
-LBBB_df_plot <- rbind(subset(LBBB_meta,rsid %in% LBBB_meta_clump$rsid), LBBB_meta[sample(nrow(LBBB_meta), 100000),])
-LBBB_df_plot <- LBBB_df_plot[!duplicated(LBBB_df_plot$rsid),]
 
-#qqman
-pdf('LBBB_meta_manhattan2.pdf', width = 10, height = 6)
-CMplot(LBBB_df_plot1,plot.type = "m", threshold = 5e-8, 
-       threshold.col = c("grey","black"),threshold.lty = c(1,2), threshold.lwd = c(1,1),
-       amplify = T, signal.cex = c(1,1), signal.pch = c(20,20), 
-       signal.col = c('#30A9DE','#EFDC05','#E53A40','#090707'), 
-       multracks = F, file.output = F)
-#Q-Q图
-LBBB_df_plot1 <- df_plot
-colnames(LBBB_df_plot1) <- c("SNP", "effect_allele", "other_allele", "eaf", "N", "P", "se", "beta", "CHR", "BP")
-df_plot_subset <- df_plot_renamed[, c("SNP", "CHR", "BP", "P")]
-pdf('LBBB_meta_QQplot.pdf', width = 6, height = 6)
-CMplot(df_plot_renamed, plot.type = "q", conf.int.col = NULL, box = TRUE,
-       file = "pdf", dpi = 300, file.output = TRUE, verbose = TRUE)
-
-dev.off()
-
-####AVB ####
 setwd('~/AVB')
 AVB_finn <- fread('finngen_R10_I9_AVB.gz',data.table = F)
 AVB_UKB <- fread('phenocode-426.2.tsv.gz',data.table = F)
@@ -208,27 +186,6 @@ for (i in 1:nrow(orig_loci)){
 filter_list <- do.call(rbind, filter_list) %>% distinct(rsid, .keep_all = TRUE)
 AVB_meta_filtered <- subset(AVB_meta_clump, ! rsid %in% filter_list$rsid)
 write.table(AVB_meta_filtered, 'AVB_meta_filtered.txt', sep='\t', quote=FALSE, row.names=FALSE)
-# 绘制曼哈顿图 #
-#随机抽取10000个SNP绘制曼哈顿图
-set.seed(123)
-AVB_df_plot <- rbind(subset(AVB_meta,rsid %in% AVB_meta_clump$rsid), AVB_meta[sample(nrow(LBBB_meta), 100000),])
-AVB_df_plot <- AVB_df_plot[!duplicated(AVB_df_plot$rsid),]
-
-#qqman
-pdf('AVB_meta_manhattan.pdf', width = 10, height = 6)
-CMplot(AVB_df_plot,plot.type = "m", threshold = 5e-8, 
-       threshold.col = c("grey","black"),threshold.lty = c(1,2), threshold.lwd = c(1,1),
-       amplify = T, signal.cex = c(1,1), signal.pch = c(20,20), 
-       signal.col = c('#30A9DE','#EFDC05','#E53A40','#090707'), 
-       multracks = F, file.output = F)
-##Q-Q图
-AVB_df_plot1 <- AVB_df_plot
-colnames(AVB_df_plot1) <- c("SNP", "effect_allele", "other_allele", "eaf", "N", "P", "se", "beta", "CHR", "BP")
-AVB_df_plot1 <- AVB_df_plot1[, c("SNP", "CHR", "BP", "P")]
-pdf('AVB_meta_QQplot.pdf', width = 6, height = 6)
-CMplot(AVB_df_plot1, plot.type = "q", conf.int.col = NULL, box = TRUE,
-       file = "pdf", dpi = 300, file.output = TRUE, verbose = TRUE)
-dev.off()
 
 #### RBBB #### 
 RBBB_finn <- fread('finngen_R10_I9_RBBB.gz',data.table = F)
@@ -308,28 +265,16 @@ for (i in 1:nrow(orig_loci)){
 filter_list <- do.call(rbind, filter_list) %>% distinct(rsid, .keep_all = TRUE)
 RBBB_meta_filtered <- subset(RBBB_meta_clump, ! rsid %in% filter_list$rsid)
 write.table(RBBB_meta_filtered, 'RBBB_meta_filtered.txt', sep='\t', quote=FALSE, row.names=FALSE)
-# 绘制曼哈顿图 #
-#随机抽取10000个SNP绘制曼哈顿图
-set.seed(123)
-RBBB_df_plot <- rbind(subset(RBBB_meta,rsid %in% RBBB_meta_clump$rsid), RBBB_meta[sample(nrow(LBBB_meta), 100000),])
-RBBB_df_plot <- RBBB_df_plot[!duplicated(RBBB_df_plot$rsid),]
 
-#qqman
-pdf('RBBB_meta_manhattan.pdf', width = 10, height = 6)
-CMplot(RBBB_df_plot,plot.type = "m", threshold = 5e-8, 
-       threshold.col = c("grey","black"),threshold.lty = c(1,2), threshold.lwd = c(1,1),
-       amplify = T, signal.cex = c(1,1), signal.pch = c(20,20), 
-       signal.col = c('#30A9DE','#EFDC05','#E53A40','#090707'), 
-       multracks = F, file.output = F)
-##Q-Q图
-RBBB_df_plot1 <- RBBB_df_plot
-colnames(RBBB_df_plot1) <- c("SNP", "effect_allele", "other_allele", "eaf", "N", "P", "se", "beta", "CHR", "BP")
-RBBB_df_plot1 <- RBBB_df_plot1[, c("SNP", "CHR", "BP", "P")]
-pdf('RBBB_meta_QQplot.pdf', width = 6, height = 6)
-CMplot(RBBB_df_plot1, plot.type = "q", conf.int.col = NULL, box = TRUE,
-       file = "pdf", dpi = 300, file.output = TRUE, verbose = TRUE)
-dev.off()
-
+system_check()
+## import the QC-configuration file
+job <- setup_inspector("/home/user/config.ini")
+## check the created instance
+job
+## run the algorithm
+job <- run_inspector(job)
+## check the brief report
+result_inspector(job) 
 
 #### SNP annotation ####
 # SNP_nearest_gene
