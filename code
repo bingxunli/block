@@ -62,8 +62,8 @@ exp_data <- LBBB_meta|> ieugwasr::ld_clump(LBBB_meta,
                                                   plink_bin = "/usr/local/lib/R/site-library/plinkbinr/bin/plink_Linux",
                                                   bfile = "/home/wasy123/1kgv3/EUR")
 # 添加chr_pos
-finngen <- select(LBBB_finn, rsids, "#chrom", pos)
-UKB <- select(LBBB_UKB, rsids,chrom, pos)
+finngen <- dplyr::select(LBBB_finn, rsids, "#chrom", pos)
+UKB <- dplyr::select(LBBB_UKB, rsids,chrom, pos)
 colnames(finngen) <- c("SNP", "chr", "pos")
 colnames(UKB) <- c("SNP", "chr", "pos")
 df1 <- rbind(finngen, UKB)
